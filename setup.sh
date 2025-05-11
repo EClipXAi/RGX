@@ -80,7 +80,7 @@ fi
 
 # Variables
 BRANCH="master"
-GIT_REPO="https://github.com/bmaltais/kohya_ss.git"
+GIT_REPO="https://github.com/EClipXAi/RGX"
 INTERACTIVE=false
 PUBLIC=false
 SKIP_SPACE_CHECK=false
