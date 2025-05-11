@@ -202,6 +202,40 @@ class flux1Training:
                     )
 
                 with gr.Row():
+                    self.flux_min_snr_gamma = gr.Number(
+                        label="Min SNR Gamma (Flux)",
+                        value=self.config.get("flux1.flux_min_snr_gamma", 0.0),
+                        info="Minimum SNR gamma for Flux training. Loss is not reduced if SNR is below this threshold. (0.0 to disable)",
+                        interactive=True,
+                    )
+                    self.flux_debiased_estimation = gr.Checkbox(
+                        label="Debiased Estimation (Flux)",
+                        value=self.config.get("flux1.flux_debiased_estimation", False),
+                        info="Enable debiased estimation for Flux training.",
+                        interactive=True,
+                    )
+                
+                with gr.Row():
+                    self.flux_min_timestep = gr.Number(
+                        label="Min Timestep (Flux)",
+                        value=self.config.get("flux1.flux_min_timestep", 0),
+                        info="Minimum timestep for Flux training (0-999).",
+                        minimum=0,
+                        maximum=999,
+                        step=1,
+                        interactive=True,
+                    )
+                    self.flux_max_timestep = gr.Number(
+                        label="Max Timestep (Flux)",
+                        value=self.config.get("flux1.flux_max_timestep", 1000),
+                        info="Maximum timestep for Flux training (1-1000).",
+                        minimum=1,
+                        maximum=1000,
+                        step=1,
+                        interactive=True,
+                    )
+
+                with gr.Row():
                     # self.blocks_to_swap = gr.Slider(
                     #     label="Blocks to swap",
                     #     value=self.config.get("flux1.blocks_to_swap", 0),
