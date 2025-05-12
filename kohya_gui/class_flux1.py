@@ -351,14 +351,6 @@ class flux1Training:
                             interactive=True,
                         )
 
-                with gr.Row():
-                    self.chroma_t5_mask = gr.Checkbox(
-                        label="Chroma-style T5 Attention Mask",
-                        value=self.config.get("flux1.chroma_t5_mask", False),
-                        info="Enable Chroma-style T5 attention mask (keep only one padding token unmasked)",
-                        interactive=True,
-                    )
-
                 self.flux1_checkbox.change(
                     lambda flux1_checkbox: gr.Accordion(visible=flux1_checkbox),
                     inputs=[self.flux1_checkbox],
