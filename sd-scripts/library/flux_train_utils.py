@@ -474,6 +474,18 @@ def get_noisy_model_input_and_timesteps(
     bsz, _, h, w = latents.shape
     assert bsz > 0, "Batch size not large enough"
     num_timesteps = noise_scheduler.config.num_train_timesteps
+
+    # Determine min/max timesteps, defaulting to global if Flux-specific are not sensible
+    min_t = args.flux_min_timestep if hasattr(args, 'flux_min_timestep') else 0
+    max_t = args.flux_max_timestep if hasattr(args, 'flux_max_timestep') else num_timesteps
+
+    if not (0 <= min_t < max_t <= num_timesteps):
+        logger.warning(
+            f"Invalid flux_min_timestep ({min_t}) or flux_max_timestep ({max_t}). Using global range [0, {num_timesteps}]."
+        )
+        min_t = 0
+        max_t = num_timesteps
+
     if args.timestep_sampling == "uniform" or args.timestep_sampling == "sigmoid":
         # Simple random sigma-based noise sampling
         if args.timestep_sampling == "sigmoid":
