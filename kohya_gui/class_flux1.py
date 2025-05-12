@@ -121,6 +121,27 @@ class flux1Training:
                         info="Apply attention mask to T5-XXL encode and FLUX double blocks ",
                         interactive=True,
                     )
+                    self.chroma_t5_mask = gr.Checkbox(
+                        label="Chroma-style T5 Attention Mask",
+                        value=self.config.get("flux1.chroma_t5_mask", False),
+                        info="Enable Chroma-style T5 attention mask (keep only one padding token unmasked)",
+                        interactive=True,
+                    )
+                    # Make them mutually exclusive
+                    def mutually_exclusive_t5_mask(apply_mask, chroma_mask):
+                        if apply_mask:
+                            return False
+                        return chroma_mask
+                    self.apply_t5_attn_mask.change(
+                        lambda v: (v, False) if v else (False, self.chroma_t5_mask.value),
+                        inputs=[self.apply_t5_attn_mask],
+                        outputs=[self.apply_t5_attn_mask, self.chroma_t5_mask],
+                    )
+                    self.chroma_t5_mask.change(
+                        lambda v: (False, v) if v else (self.apply_t5_attn_mask.value, False),
+                        inputs=[self.chroma_t5_mask],
+                        outputs=[self.apply_t5_attn_mask, self.chroma_t5_mask],
+                    )
                 with gr.Row(visible=True if not finetuning else False):
                     self.split_mode = gr.Checkbox(
                         label="Split Mode",

@@ -705,3 +705,8 @@ def add_flux_train_arguments(parser: argparse.ArgumentParser):
         default=3.0,
         help="Discrete flow shift for the Euler Discrete Scheduler, default is 3.0. / Euler Discrete Schedulerの離散フローシフト、デフォルトは3.0。",
     )
+    parser.add_argument(
+        "--chroma_t5_mask",
+        action="store_true",
+        help="Enable Chroma-style T5 attention mask (keep only one padding token unmasked)",
+    )

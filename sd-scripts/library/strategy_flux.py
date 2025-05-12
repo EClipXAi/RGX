@@ -27,15 +27,13 @@ class FluxTokenizeStrategy(TokenizeStrategy):
         self.t5xxl = self._load_tokenizer(T5TokenizerFast, T5_XXL_TOKENIZER_ID, tokenizer_cache_dir=tokenizer_cache_dir)
 
     def tokenize(self, text: Union[str, List[str]], chroma_t5_mask: bool = False) -> List[torch.Tensor]:
+        # chroma_t5_mask: If True, apply Chroma-style masking (keep only one padding token unmasked)
         text = [text] if isinstance(text, str) else text
-
         l_tokens = self.clip_l(text, max_length=77, padding="max_length", truncation=True, return_tensors="pt")
         l_tokens = l_tokens["input_ids"]
         t5_tokens = self.t5xxl(text, max_length=self.t5xxl_max_length, padding="max_length", truncation=True, return_tensors="pt")
-
         t5_attn_mask = t5_tokens["attention_mask"]
         t5_tokens = t5_tokens["input_ids"]
-
         if chroma_t5_mask:
             logger.info("Applying Chroma-style T5 attention mask (only one padding token unmasked).")
             try:
@@ -65,23 +63,20 @@ class FluxTextEncodingStrategy(TextEncodingStrategy):
         models: List[Any],
         tokens: List[torch.Tensor],
         apply_t5_attn_mask: Optional[bool] = None,
+        chroma_t5_mask: Optional[bool] = None,
     ) -> List[torch.Tensor]:
-        # supports single model inference
-
+        # If chroma_t5_mask is True, force apply_t5_attn_mask True and use Chroma-style masking
+        if chroma_t5_mask:
+            apply_t5_attn_mask = True
         if apply_t5_attn_mask is None:
             apply_t5_attn_mask = self.apply_t5_attn_mask
-
         clip_l, t5xxl = models if len(models) == 2 else (models[0], None)
         l_tokens, t5_tokens = tokens[:2]
         t5_attn_mask = tokens[2] if len(tokens) > 2 else None
-
-        # clip_l is None when using T5 only
         if clip_l is not None and l_tokens is not None:
             l_pooled = clip_l(l_tokens.to(clip_l.device))["pooler_output"]
         else:
             l_pooled = None
-
-        # t5xxl is None when using CLIP only
         if t5xxl is not None and t5_tokens is not None:
             if apply_t5_attn_mask:
                 logger.info("T5 attention mask is being applied in encoding (Chroma-style).")
@@ -90,18 +85,14 @@ class FluxTextEncodingStrategy(TextEncodingStrategy):
                     wandb.log({"info/t5_attention_mask": "chroma"}, commit=False)
                 except ImportError:
                     pass
-            # t5_out is [b, max length, 4096]
             attention_mask = None if not apply_t5_attn_mask else t5_attn_mask.to(t5xxl.device)
             t5_out, _ = t5xxl(t5_tokens.to(t5xxl.device), attention_mask, return_dict=False, output_hidden_states=True)
-            # if zero_pad_t5_output:
-            #     t5_out = t5_out * t5_attn_mask.to(t5_out.device).unsqueeze(-1)
             txt_ids = torch.zeros(t5_out.shape[0], t5_out.shape[1], 3, device=t5_out.device)
         else:
             t5_out = None
             txt_ids = None
-            t5_attn_mask = None  # caption may be dropped/shuffled, so t5_attn_mask should not be used to make sure the mask is same as the cached one
-
-        return [l_pooled, t5_out, txt_ids, t5_attn_mask]  # returns t5_attn_mask for attention mask in transformer
+            t5_attn_mask = None
+        return [l_pooled, t5_out, txt_ids, t5_attn_mask]
 
 
 class FluxTextEncoderOutputsCachingStrategy(TextEncoderOutputsCachingStrategy):

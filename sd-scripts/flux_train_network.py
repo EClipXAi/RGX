@@ -145,7 +145,6 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
 
     def get_tokenize_strategy(self, args):
         _, is_schnell, _, _ = flux_utils.analyze_checkpoint_state(args.pretrained_model_name_or_path)
-
         if args.t5xxl_max_token_length is None:
             if is_schnell:
                 t5xxl_max_token_length = 256
@@ -153,7 +152,6 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
                 t5xxl_max_token_length = 512
         else:
             t5xxl_max_token_length = args.t5xxl_max_token_length
-
         logger.info(f"t5xxl_max_token_length: {t5xxl_max_token_length}")
         return strategy_flux.FluxTokenizeStrategy(t5xxl_max_token_length, args.tokenizer_cache_dir)
 
@@ -165,7 +163,9 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
         return latents_caching_strategy
 
     def get_text_encoding_strategy(self, args):
-        return strategy_flux.FluxTextEncodingStrategy(apply_t5_attn_mask=args.apply_t5_attn_mask)
+        # If chroma_t5_mask is True, force apply_t5_attn_mask True
+        apply_t5_attn_mask = args.apply_t5_attn_mask or args.chroma_t5_mask
+        return strategy_flux.FluxTextEncodingStrategy(apply_t5_attn_mask=apply_t5_attn_mask)
 
     def post_process_network(self, args, accelerator, network, text_encoders, unet):
         # check t5xxl is trained or not
@@ -377,7 +377,10 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
 
         # Predict the noise residual
         l_pooled, t5_out, txt_ids, t5_attn_mask = text_encoder_conds
-        if not args.apply_t5_attn_mask:
+        # If chroma_t5_mask is True, force T5 mask
+        if args.chroma_t5_mask:
+            t5_attn_mask = t5_attn_mask  # already Chroma-masked in tokenize
+        elif not args.apply_t5_attn_mask:
             t5_attn_mask = None
 
         def call_dit(img, img_ids, t5_out, txt_ids, l_pooled, timesteps, guidance_vec, t5_attn_mask):
