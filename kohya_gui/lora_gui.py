@@ -1524,11 +1524,11 @@ def train_model(
         "log_config": log_config,
         "log_tracker_name": log_tracker_name,
         "log_tracker_config": log_tracker_config,
-        "loraplus_lr_ratio": loraplus_lr_ratio if not 0 else None,
+        "loraplus_lr_ratio": loraplus_lr_ratio if loraplus_lr_ratio != 0 else None,
         "loraplus_text_encoder_lr_ratio": (
-            loraplus_text_encoder_lr_ratio if not 0 else None
+            loraplus_text_encoder_lr_ratio if loraplus_text_encoder_lr_ratio != 0 else None
         ),
-        "loraplus_unet_lr_ratio": loraplus_unet_lr_ratio if not 0 else None,
+        "loraplus_unet_lr_ratio": loraplus_unet_lr_ratio if loraplus_unet_lr_ratio != 0 else None,
         "loss_type": loss_type,
         "lowvram": lowvram,
         "lr_scheduler": lr_scheduler,
@@ -1636,11 +1636,11 @@ def train_model(
         "stop_text_encoder_training": (
             stop_text_encoder_training if stop_text_encoder_training != 0 else None
         ),
-        "text_encoder_lr": text_encoder_lr_list if not [] else None,
+        "text_encoder_lr": text_encoder_lr_list if text_encoder_lr_list != [] else None,
         "train_batch_size": train_batch_size,
         "train_data_dir": train_data_dir,
         "training_comment": training_comment,
-        "unet_lr": unet_lr if not 0 else None,
+        "unet_lr": unet_lr if unet_lr != 0 else None,
         "log_with": log_with,
         "v2": v2,
         "v_parameterization": v_parameterization,
@@ -2051,7 +2051,7 @@ def lora_tab(
                 with gr.Row() as network_row:
                     network_dim = gr.Slider(
                         minimum=1,
-                        maximum=100000,
+                        maximum=512,
                         label="Network Rank (Dimension)",
                         value=8,
                         step=1,
@@ -2059,7 +2059,7 @@ def lora_tab(
                     )
                     network_alpha = gr.Slider(
                         minimum=0.00001,
-                        maximum=100000,
+                        maximum=1024,
                         label="Network Alpha",
                         value=1,
                         step=0.00001,
@@ -2070,14 +2070,14 @@ def lora_tab(
                     # locon= gr.Checkbox(label='Train a LoCon instead of a general LoRA (does not support v2 base models) (may not be able to some utilities now)', value=False)
                     conv_dim = gr.Slider(
                         minimum=0,
-                        maximum=100000,
+                        maximum=512,
                         value=1,
                         step=1,
                         label="Convolution Rank (Dimension)",
                     )
                     conv_alpha = gr.Slider(
                         minimum=0,
-                        maximum=100000,
+                        maximum=512,
                         value=1,
                         step=1,
                         label="Convolution Alpha",
@@ -2310,7 +2310,7 @@ def lora_tab(
                                         "LyCORIS/BOFT",
                                         "LyCORIS/Diag-OFT",
                                     }
-                                    else 10000
+                                    else 512
                                 ),
                                 "value": conv_dim,  # if conv_dim > 512 else conv_dim,
                             },
@@ -2327,7 +2327,7 @@ def lora_tab(
                                         "LyCORIS/BOFT",
                                         "LyCORIS/Diag-OFT",
                                     }
-                                    else 10000
+                                    else 512
                                 ),
                                 "value": network_dim,  # if network_dim > 512 else network_dim,
                             },
