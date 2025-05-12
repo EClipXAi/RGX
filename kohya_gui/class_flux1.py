@@ -110,8 +110,9 @@ class flux1Training:
                     )
                     self.timestep_sampling = gr.Dropdown(
                         label="Timestep Sampling",
-                        choices=["flux_shift", "sigma", "shift", "sigmoid", "uniform"],
+                        choices=["sigma", "uniform", "sigmoid", "shift", "flux_shift", "chroma"],
                         value=self.config.get("flux1.timestep_sampling", "sigma"),
+                        info="Method to sample timesteps. 'chroma' uses Chroma-style -x^2 distribution.",
                         interactive=True,
                     )
                     self.apply_t5_attn_mask = gr.Checkbox(
@@ -328,6 +329,14 @@ class flux1Training:
                             info="Each number corresponds to img_in, time_in, vector_in, guidance_in, txt_in. The above example applies LoRA to all conditioning layers, with rank 4 for img_in, 2 for time_in, vector_in, guidance_in, and 4 for txt_in.",
                             interactive=True,
                         )
+
+                with gr.Row():
+                    self.chroma_t5_mask = gr.Checkbox(
+                        label="Chroma-style T5 Attention Mask",
+                        value=self.config.get("flux1.chroma_t5_mask", False),
+                        info="Enable Chroma-style T5 attention mask (keep only one padding token unmasked)",
+                        interactive=True,
+                    )
 
                 self.flux1_checkbox.change(
                     lambda flux1_checkbox: gr.Accordion(visible=flux1_checkbox),

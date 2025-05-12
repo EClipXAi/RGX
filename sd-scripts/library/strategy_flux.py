@@ -26,26 +26,23 @@ class FluxTokenizeStrategy(TokenizeStrategy):
         self.clip_l = self._load_tokenizer(CLIPTokenizer, CLIP_L_TOKENIZER_ID, tokenizer_cache_dir=tokenizer_cache_dir)
         self.t5xxl = self._load_tokenizer(T5TokenizerFast, T5_XXL_TOKENIZER_ID, tokenizer_cache_dir=tokenizer_cache_dir)
 
-    def tokenize(self, text: Union[str, List[str]]) -> List[torch.Tensor]:
+    def tokenize(self, text: Union[str, List[str]], chroma_t5_mask: bool = False) -> List[torch.Tensor]:
         text = [text] if isinstance(text, str) else text
 
         l_tokens = self.clip_l(text, max_length=77, padding="max_length", truncation=True, return_tensors="pt")
         l_tokens = l_tokens["input_ids"]
         t5_tokens = self.t5xxl(text, max_length=self.t5xxl_max_length, padding="max_length", truncation=True, return_tensors="pt")
 
-        # Get the standard attention mask
         t5_attn_mask = t5_tokens["attention_mask"]
         t5_tokens = t5_tokens["input_ids"]
 
-        # Modify attention mask to keep only one padding token unmasked
-        # First, find where padding starts for each sequence
-        for i in range(t5_attn_mask.shape[0]):
-            # Find the first padding token (where attention mask becomes 0)
-            pad_start = torch.where(t5_attn_mask[i] == 0)[0]
-            if len(pad_start) > 0:
-                pad_start = pad_start[0].item()
-                # Keep only one padding token unmasked
-                t5_attn_mask[i, pad_start+1:] = 0
+        if chroma_t5_mask:
+            # Chroma-style: keep only one padding token unmasked
+            for i in range(t5_attn_mask.shape[0]):
+                pad_start = torch.where(t5_attn_mask[i] == 0)[0]
+                if len(pad_start) > 0:
+                    pad_start = pad_start[0].item()
+                    t5_attn_mask[i, pad_start+1:] = 0
 
         return [l_tokens, t5_tokens, t5_attn_mask]
 
@@ -54,8 +51,7 @@ class FluxTextEncodingStrategy(TextEncodingStrategy):
     def __init__(self, apply_t5_attn_mask: Optional[bool] = None) -> None:
         """
         Args:
-            apply_t5_attn_mask: Whether to apply attention masking. When True, uses Chroma-style masking
-                              where only one padding token is kept unmasked to maintain distribution stability.
+            apply_t5_attn_mask: Default value for apply_t5_attn_mask.
         """
         self.apply_t5_attn_mask = apply_t5_attn_mask
 
@@ -83,11 +79,11 @@ class FluxTextEncodingStrategy(TextEncodingStrategy):
 
         # t5xxl is None when using CLIP only
         if t5xxl is not None and t5_tokens is not None:
-            # Apply Chroma-style attention masking: only one padding token is kept unmasked
-            # This helps prevent the model from paying too much attention to padding tokens
-            # while maintaining distribution stability
+            # t5_out is [b, max length, 4096]
             attention_mask = None if not apply_t5_attn_mask else t5_attn_mask.to(t5xxl.device)
             t5_out, _ = t5xxl(t5_tokens.to(t5xxl.device), attention_mask, return_dict=False, output_hidden_states=True)
+            # if zero_pad_t5_output:
+            #     t5_out = t5_out * t5_attn_mask.to(t5_out.device).unsqueeze(-1)
             txt_ids = torch.zeros(t5_out.shape[0], t5_out.shape[1], 3, device=t5_out.device)
         else:
             t5_out = None
