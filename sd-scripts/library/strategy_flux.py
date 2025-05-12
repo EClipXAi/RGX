@@ -30,6 +30,7 @@ class FluxTokenizeStrategy(TokenizeStrategy):
         text = [text] if isinstance(text, str) else text
 
         l_tokens = self.clip_l(text, max_length=77, padding="max_length", truncation=True, return_tensors="pt")
+        l_tokens = l_tokens["input_ids"]
         t5_tokens = self.t5xxl(text, max_length=self.t5xxl_max_length, padding="max_length", truncation=True, return_tensors="pt")
 
         # Get the standard attention mask

@@ -474,43 +474,15 @@ def get_noisy_model_input_and_timesteps(
     bsz, _, h, w = latents.shape
     assert bsz > 0, "Batch size not large enough"
     num_timesteps = noise_scheduler.config.num_train_timesteps
-
-    # Determine min/max timesteps, defaulting to global if Flux-specific are not sensible
-    min_t = args.flux_min_timestep if hasattr(args, 'flux_min_timestep') else 0
-    max_t = args.flux_max_timestep if hasattr(args, 'flux_max_timestep') else num_timesteps
-
-    if not (0 <= min_t < max_t <= num_timesteps):
-        logger.warning(
-            f"Invalid flux_min_timestep ({min_t}) or flux_max_timestep ({max_t}). Using global range [0, {num_timesteps}]."
-        )
-        min_t = 0
-        max_t = num_timesteps
-
     if args.timestep_sampling == "uniform" or args.timestep_sampling == "sigmoid":
         # Simple random sigma-based noise sampling
         if args.timestep_sampling == "sigmoid":
             # https://github.com/XLabs-AI/x-flux/tree/main
             sigmas = torch.sigmoid(args.sigmoid_scale * torch.randn((bsz,), device=device))
-        else: # uniform
-            sigmas = torch.rand((bsz,), device=device) # 0 to 1
+        else:
+            sigmas = torch.rand((bsz,), device=device)
 
-        # Scale sigmas to the desired timestep range [min_t, max_t)
-        timesteps = min_t + sigmas * (max_t - min_t) 
-        timesteps = timesteps.long() # Convert to long for indexing if needed, ensure it stays within [min_t, max_t-1]
-        # Clamp to be absolutely sure, though scaling should handle it.
-        timesteps = torch.clamp(timesteps, min_t, max_t -1) 
-
-    elif args.timestep_sampling == "chroma":
-        # Chroma's -x^2 distribution for better coverage of tail regions
-        # This helps prevent loss spikes by ensuring better coverage of high-noise and low-noise regions
-        x = torch.rand((bsz,), device=device)  # Random values between 0 and 1
-        # Apply -x^2 transformation to get more samples near 0 and 1
-        sigmas = 1 - (x * x)  # This gives a distribution that's denser near 0 and 1
-        # Scale to the desired timestep range
-        timesteps = min_t + sigmas * (max_t - min_t)
-        timesteps = timesteps.long()
-        timesteps = torch.clamp(timesteps, min_t, max_t - 1)
-
+        timesteps = sigmas * num_timesteps
     elif args.timestep_sampling == "shift":
         shift = args.discrete_flow_shift
         sigmas = torch.randn(bsz, device=device)
@@ -535,10 +507,7 @@ def get_noisy_model_input_and_timesteps(
             logit_std=args.logit_std,
             mode_scale=args.mode_scale,
         )
-        # Map u (0-1) to the range [min_t, max_t)
-        indices = (min_t + u * (max_t - min_t)).long()
-        # Clamp indices to be safe, then get timesteps from scheduler
-        indices = torch.clamp(indices, min_t, max_t -1) 
+        indices = (u * num_timesteps).long()
         timesteps = noise_scheduler.timesteps[indices].to(device=device)
         sigmas = get_sigmas(noise_scheduler, timesteps, device, n_dim=latents.ndim, dtype=dtype)
 
@@ -685,7 +654,7 @@ def add_flux_train_arguments(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--timestep_sampling",
-        choices=["sigma", "uniform", "sigmoid", "shift", "flux_shift", "chroma"],
+        choices=["sigma", "uniform", "sigmoid", "shift", "flux_shift"],
         default="sigma",
         help="Method to sample timesteps: sigma-based, uniform random, sigmoid of random normal, shift of sigmoid and FLUX.1 shifting."
         " / タイムステップをサンプリングする方法：sigma、random uniform、random normalのsigmoid、sigmoidのシフト、FLUX.1のシフト。",
@@ -710,28 +679,4 @@ def add_flux_train_arguments(parser: argparse.ArgumentParser):
         type=float,
         default=3.0,
         help="Discrete flow shift for the Euler Discrete Scheduler, default is 3.0. / Euler Discrete Schedulerの離散フローシフト、デフォルトは3.0。",
-    )
-
-    parser.add_argument(
-        "--flux_min_snr_gamma",
-        type=float,
-        default=0.0,
-        help="Minimum SNR gamma for Flux training. loss is not reduced if SNR is below this threshold. (0.0 to disable) / Flux学習用の最小SNRガンマ。SNRがこの閾値を下回る場合、lossは低減されません。(0.0で無効)",
-    )
-    parser.add_argument(
-        "--flux_debiased_estimation",
-        action="store_true",
-        help="Enable debiased estimation for Flux training. / Flux学習用にdebiased estimationを有効にする。",
-    )
-    parser.add_argument(
-        "--flux_min_timestep",
-        type=int,
-        default=0,
-        help="Minimum timestep for Flux training (0-999). / Flux学習用の最小タイムステップ(0-999)。",
-    )
-    parser.add_argument(
-        "--flux_max_timestep",
-        type=int,
-        default=1000,
-        help="Maximum timestep for Flux training (1-1000). / Flux学習用の最大タイムステップ(1-1000)。",
     )

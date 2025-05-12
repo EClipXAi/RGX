@@ -20,7 +20,6 @@ from library import (
     strategy_base,
     strategy_flux,
     train_util,
-    custom_train_functions,
 )
 from library.utils import setup_logging
 
@@ -452,24 +451,6 @@ class FluxNetworkTrainer(train_network.NetworkTrainer):
         return model_pred, target, timesteps, weighting
 
     def post_process_loss(self, loss, args, timesteps, noise_scheduler):
-        if hasattr(args, 'flux_min_snr_gamma') and args.flux_min_snr_gamma > 0.0:
-            # Min SNR gamma
-            # Ensure noise_scheduler is prepared for custom_train_functions
-            custom_train_functions.prepare_scheduler_for_custom_training(noise_scheduler, loss.device) 
-            loss = custom_train_functions.apply_snr_weight(loss, timesteps, noise_scheduler, args.flux_min_snr_gamma, v_prediction=args.v_parameterization) # Assuming v_param might be relevant for Flux too
-            logger.info(f"Applied min_snr_gamma: {args.flux_min_snr_gamma}")
-
-        if hasattr(args, 'flux_debiased_estimation') and args.flux_debiased_estimation:
-            # Debiased estimation
-            # Ensure noise_scheduler is prepared for custom_train_functions
-            custom_train_functions.prepare_scheduler_for_custom_training(noise_scheduler, loss.device)
-            loss = custom_train_functions.apply_debiased_estimation(loss, timesteps, noise_scheduler, v_prediction=args.v_parameterization)
-            logger.info("Applied debiased estimation loss.")
-        
-        # Huber SNR schedule is handled by the parent NetworkTrainer via get_huber_threshold_if_needed and conditional_loss,
-        # provided args.loss_type is 'huber' and args.huber_schedule is 'snr'.
-        # No specific Flux changes needed here for that if global args are used.
-
         return loss
 
     def get_sai_model_spec(self, args):
