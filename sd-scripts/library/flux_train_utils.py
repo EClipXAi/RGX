@@ -500,6 +500,17 @@ def get_noisy_model_input_and_timesteps(
         # Clamp to be absolutely sure, though scaling should handle it.
         timesteps = torch.clamp(timesteps, min_t, max_t -1) 
 
+    elif args.timestep_sampling == "chroma":
+        # Chroma's -x^2 distribution for better coverage of tail regions
+        # This helps prevent loss spikes by ensuring better coverage of high-noise and low-noise regions
+        x = torch.rand((bsz,), device=device)  # Random values between 0 and 1
+        # Apply -x^2 transformation to get more samples near 0 and 1
+        sigmas = 1 - (x * x)  # This gives a distribution that's denser near 0 and 1
+        # Scale to the desired timestep range
+        timesteps = min_t + sigmas * (max_t - min_t)
+        timesteps = timesteps.long()
+        timesteps = torch.clamp(timesteps, min_t, max_t - 1)
+
     elif args.timestep_sampling == "shift":
         shift = args.discrete_flow_shift
         sigmas = torch.randn(bsz, device=device)
@@ -674,7 +685,7 @@ def add_flux_train_arguments(parser: argparse.ArgumentParser):
 
     parser.add_argument(
         "--timestep_sampling",
-        choices=["sigma", "uniform", "sigmoid", "shift", "flux_shift"],
+        choices=["sigma", "uniform", "sigmoid", "shift", "flux_shift", "chroma"],
         default="sigma",
         help="Method to sample timesteps: sigma-based, uniform random, sigmoid of random normal, shift of sigmoid and FLUX.1 shifting."
         " / タイムステップをサンプリングする方法：sigma、random uniform、random normalのsigmoid、sigmoidのシフト、FLUX.1のシフト。",
