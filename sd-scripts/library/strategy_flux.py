@@ -37,13 +37,17 @@ class FluxTokenizeStrategy(TokenizeStrategy):
         t5_tokens = t5_tokens["input_ids"]
 
         if chroma_t5_mask:
-            # Chroma-style: keep only one padding token unmasked
+            logger.info("Applying Chroma-style T5 attention mask (only one padding token unmasked).")
+            try:
+                import wandb
+                wandb.log({"info/t5_attention_mask": "chroma"}, commit=False)
+            except ImportError:
+                pass
             for i in range(t5_attn_mask.shape[0]):
                 pad_start = torch.where(t5_attn_mask[i] == 0)[0]
                 if len(pad_start) > 0:
                     pad_start = pad_start[0].item()
                     t5_attn_mask[i, pad_start+1:] = 0
-
         return [l_tokens, t5_tokens, t5_attn_mask]
 
 
@@ -79,6 +83,13 @@ class FluxTextEncodingStrategy(TextEncodingStrategy):
 
         # t5xxl is None when using CLIP only
         if t5xxl is not None and t5_tokens is not None:
+            if apply_t5_attn_mask:
+                logger.info("T5 attention mask is being applied in encoding (Chroma-style).")
+                try:
+                    import wandb
+                    wandb.log({"info/t5_attention_mask": "chroma"}, commit=False)
+                except ImportError:
+                    pass
             # t5_out is [b, max length, 4096]
             attention_mask = None if not apply_t5_attn_mask else t5_attn_mask.to(t5xxl.device)
             t5_out, _ = t5xxl(t5_tokens.to(t5xxl.device), attention_mask, return_dict=False, output_hidden_states=True)

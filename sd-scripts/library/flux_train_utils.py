@@ -497,6 +497,20 @@ def get_noisy_model_input_and_timesteps(
         mu = get_lin_function(y1=0.5, y2=1.15)((h // 2) * (w // 2))  # we are pre-packed so must adjust for packed size
         sigmas = time_shift(mu, 1.0, sigmas)
         timesteps = sigmas * num_timesteps
+    elif args.timestep_sampling == "chroma":
+        logger.info("Using Chroma-style (-x^2) timestep sampling.")
+        try:
+            import wandb
+            if hasattr(args, 'wandb_run_name') and args.wandb_run_name:
+                wandb.log({"info/timestep_sampling": "chroma"}, commit=False)
+        except ImportError:
+            pass
+        # Chroma's -x^2 distribution for better coverage of tail regions
+        x = torch.rand((bsz,), device=device)  # Random values between 0 and 1
+        sigmas = 1 - (x * x)  # This gives a distribution that's denser near 0 and 1
+        timesteps = min_t + sigmas * (max_t - min_t)
+        timesteps = timesteps.long()
+        timesteps = torch.clamp(timesteps, min_t, max_t - 1)
     else:
         # Sample a random timestep for each image
         # for weighting schemes where we sample timesteps non-uniformly
